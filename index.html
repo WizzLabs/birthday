@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A World Built for Bee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+
+<!-- ===================== ORIENTATION GATE (mobile portrait only) ===================== -->
+<div id="orientation-gate" class="screen" hidden aria-live="polite">
+  <div class="orientation-gate__scene" aria-hidden="true">
+    <img class="orientation-gate__backdrop" src="assets/scenery-fallback.png" alt="" onerror="this.onerror=null;this.src='scenery-fallback.png'">
+    <div class="orientation-gate__overlay"></div>
+    <div class="orientation-gate__petals">
+      <span class="petal petal--1"></span>
+      <span class="petal petal--2"></span>
+      <span class="petal petal--3"></span>
+      <span class="petal petal--4"></span>
+      <span class="petal petal--5"></span>
+      <span class="petal petal--6"></span>
+      <span class="petal petal--7"></span>
+      <span class="petal petal--8"></span>
+    </div>
+  </div>
+
+  <div class="orientation-gate__stage">
+    <div class="orientation-gate__chains" aria-hidden="true">
+      <span class="chain"></span>
+      <span class="chain"></span>
+    </div>
+
+    <div class="orientation-gate__board">
+      <div class="orientation-gate__illustration" aria-hidden="true">
+        <div class="pixel-phone-wrap">
+          <div class="pixel-phone">
+            <div class="pixel-phone__notch"></div>
+            <div class="pixel-phone__screen">
+              <div class="pixel-phone__sun"></div>
+              <div class="pixel-phone__tree"></div>
+              <div class="pixel-phone__ground"></div>
+            </div>
+            <div class="pixel-phone__chin"></div>
+          </div>
+          <div class="pixel-arrow">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+              <path d="M12 3v4M12 3l-3 3M12 3l3 3M19 12a7 7 0 1 1-2.05-4.95"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="px orientation-gate__heading">A Little World Awaits</h2>
+      <p class="orientation-gate__desc">Turn your device sideways to step into the full experience.</p>
+      <div class="orientation-gate__hint-box">
+        <span class="px orientation-gate__hint">Rotate to continue</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SCREEN 1: LANDING SCREEN ===================== -->
+<main id="landing" class="screen screen--active">
+
+  <!-- background layer: video-in.mp4 (portrait-encoded, content rotated 90° CW in file)
+       .scene__media--rotated applies transform: rotate(-90deg) with swapped viewport dimensions
+       to display the encoded content upright in landscape.
+       The fallback image (scenery-fallback.png) sits beneath in normal orientation. -->
+  <div class="scene" aria-hidden="true">
+    <img id="scene-fallback" class="scene__media" src="assets/scenery-fallback.png" alt=""
+         onerror="this.onerror=null;this.src='scenery-fallback.png'">
+    <video
+      id="scene-video"
+      class="scene__media--video scene__media--rotated"
+      src="assets/video-in.mp4"
+      poster="assets/scenery-fallback.png"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+    ></video>
+
+    <!-- Mitsubee, standing among the blossoms on the right. Purely decorative
+         scenery — sits inside .scene so it shares the vignette's lighting and
+         stays beneath .stage (title/gate) in the stacking order. -->
+    <div class="scene-character scene-character--mitsubee" aria-hidden="true">
+      <div class="scene-character__shadow"></div>
+      <img class="scene-character__img" src="assets/mitsubee-pose.png" alt="">
+    </div>
+
+    <div class="scene__vignette"></div>
+  </div>
+
+  <!-- foreground content -->
+  <div class="stage">
+
+    <header class="hero">
+      <h1 class="px hero__title">A World Built for Bee</h1>
+      <p class="hero__subtitle">A little world, made just for you.</p>
+    </header>
+
+    <section class="gate" aria-labelledby="gate-heading">
+      <p class="gate__lead">Before you enter this little world&hellip;</p>
+
+      <div class="gate__form-wrap">
+        <!-- Sharuu, perched sitting on top of the name-entry panel — like
+             he's sitting on top of a Minecraft question block. A sibling of
+             the form (not a child), so the form's clip-path corner-notch
+             doesn't clip him. Purely decorative. -->
+        <div class="gate-character" aria-hidden="true">
+          <img class="gate-character__img" src="assets/sharuu-pose.png" alt="">
+        </div>
+
+      <form id="name-form" class="gate__form" novalidate>
+        <label class="px gate__label" for="visitor-name" id="gate-heading">What do I call you?</label>
+
+        <div class="gate__row">
+          <input
+            id="visitor-name"
+            class="gate__input"
+            type="text"
+            name="visitor-name"
+            placeholder="Your name"
+            autocomplete="off"
+            autocapitalize="words"
+            spellcheck="false"
+            aria-describedby="gate-error"
+          >
+          <button type="submit" class="px btn gate__submit">Open My World</button>
+        </div>
+
+        <p id="gate-error" class="gate__error" role="alert" aria-live="polite"></p>
+      </form>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ===================== SCREEN 3+4: AFTER SCENE ===================== -->
+<!--
+  video-af.mp4 plays full-screen behind both phases:
+    Phase A — Transition: shows "The world opens soon…" while the video buffers.
+    Phase B — Welcome:    fades in "Welcome home, Bee!" once the video is playing.
+  No blank screen or solid-color screen ever appears between these phases.
+-->
+<section id="after-scene" class="screen" hidden>
+
+  <!-- Full-screen video-af.mp4 background. No fallback image — video is preloaded before reveal. -->
+  <div class="scene scene--after" aria-hidden="true">
+    <video
+      id="after-video"
+      class="after-video"
+      muted
+      loop
+      playsinline
+      preload="none"
+    ></video>
+
+    <div class="scene__vignette scene__vignette--after"></div>
+  </div>
+
+  <!-- Phase A: Transition text — visible immediately when #after-scene is shown -->
+  <div id="after-transition" class="after-transition">
+    <p class="px after-transition__title">The world opens soon&hellip;</p>
+  </div>
+
+  <!-- Phase B: Welcome text — revealed once video is playing (JS removes hidden) -->
+  <div id="after-welcome" class="after-welcome" hidden>
+    <p class="px after-title">Welcome home, Bee!</p>
+    <p class="after-subtitle">A little world, made just for you.</p>
+  </div>
+
+  <!-- ===================== GAME HUD: Minecraft Memory World ===================== -->
+  <div id="game-hud" class="hud" hidden>
+
+    <div id="hud-banner" class="hud-banner" hidden>
+      <p class="px hud-banner__title">All memories recovered!</p>
+      <p class="hud-banner__sub">Something special has appeared&hellip;</p>
+    </div>
+
+    <button id="reward-prompt" class="reward-prompt" type="button" hidden aria-label="Open your gift">
+      <span class="reward-prompt__glow" aria-hidden="true"></span>
+      <span id="reward-prompt-label" class="px reward-prompt__label">A Gift Has Appeared</span>
+    </button>
+
+    <button id="quest-toggle" class="quest-toggle px" type="button" aria-haspopup="true" aria-controls="quest-panel" aria-expanded="false">
+      <span class="quest-toggle__icon" aria-hidden="true">&#x2756;</span>
+      <span id="quest-toggle-progress" class="quest-toggle__progress">0/8</span>
+    </button>
+
+    <aside id="quest-panel" class="quest-panel" hidden aria-label="Memory quests">
+      <div class="quest-panel__head">
+        <h2 class="px quest-panel__title">Memories</h2>
+        <button id="quest-close" class="quest-panel__close" type="button" aria-label="Close quest log">&times;</button>
+      </div>
+      <ul id="quest-list" class="quest-list"></ul>
+      <p id="quest-progress-text" class="quest-panel__progress">Progress: 0/8</p>
+    </aside>
+
+    <div class="hotbar">
+      <div id="hotbar-slots" class="hotbar__slots" role="toolbar" aria-label="Memory hotbar"></div>
+      <img id="hotbar-frame" class="hotbar__frame" src="assets/frame.png" alt="" aria-hidden="true">
+    </div>
+
+  </div>
+
+  <!-- Memory photo viewer -->
+  <div id="memory-viewer" class="viewer" hidden>
+    <div class="viewer__backdrop" data-close></div>
+    <div class="viewer__panel" role="dialog" aria-modal="true" aria-labelledby="viewer-caption">
+      <button class="viewer__close" type="button" data-close aria-label="Close photograph">&times;</button>
+      <div id="viewer-media" class="viewer__media"></div>
+      <p id="viewer-caption" class="px viewer__caption"></p>
+    </div>
+  </div>
+
+  <!-- Reward video overlay -->
+  <div id="reward-overlay" class="reward-overlay" hidden>
+    <button id="reward-close" class="reward-overlay__close" type="button" aria-label="Close reward video">&times;</button>
+    <video id="reward-video" class="reward-overlay__video" playsinline controls></video>
+    <div id="reward-fallback" class="reward-overlay__fallback" hidden>
+      <p class="px reward-overlay__fallback-title">Your gift is still wrapping up&hellip;</p>
+      <p class="reward-overlay__fallback-sub">The special video isn't here yet, but it's on its way.</p>
+    </div>
+  </div>
+
+  <!-- Chest: "A Little Something for You" — ported from the old project's
+       #chest div. Opens a letter overlay that reveals its lines one at a
+       time with a confetti burst, same as the source's letter() function. -->
+  <div id="letter-overlay" class="letter-overlay" hidden>
+    <div class="letter-overlay__backdrop" data-letter-close></div>
+    <div class="letter" role="dialog" aria-modal="true" aria-label="A Little Something for You">
+      <button id="letter-close" class="letter__close" type="button" aria-label="Close letter">&times;</button>
+      <div id="letter-text" class="letter__text"></div>
+      <div class="letter__actions">
+        <button id="letter-skip" class="btn letter__skip" type="button">Reveal all</button>
+        <button id="letter-more" class="btn letter__more" type="button" hidden>There's One More Thing&hellip;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final scene: "One More Thing..." — ported from the old project's
+       final scene (msg() typing effect + "Revisit Our World" reset). -->
+  <div id="final-overlay" class="final-overlay" hidden>
+    <div class="final-overlay__backdrop"></div>
+    <div class="final" role="dialog" aria-modal="true" aria-label="One More Thing">
+      <div class="final__panel">
+        <p id="final-line1" class="final__line"></p>
+        <p id="final-line2" class="final__line"></p>
+      </div>
+      <div id="final-after" class="final__after" hidden>
+        <div class="final__frame">
+          <img src="assets/final-photo.jpg" alt="Our photo" class="final__frame-img">
+        </div>
+        <p class="final__thanks">Thank you for being part of my world, Bee.</p>
+        <p class="final__signoff">&mdash; Your old sidekick</p>
+        <button id="final-revisit" class="btn final__revisit" type="button">Revisit Our World</button>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<script src="script.js"></script>
+</body>
+</html>

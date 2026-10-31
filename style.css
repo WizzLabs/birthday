@@ -1,0 +1,1407 @@
+/* =========================================================================
+   A WORLD BUILT FOR BEE — design tokens
+   Palette pulled from the cherry-blossom scenery: dusk sky, warm sun,
+   blossom pink, moss green, and a wood/stone UI language (no rounded
+   SaaS cards — panels read as planks and signs).
+   ========================================================================= */
+:root{
+  --ink:        #2b1a2e;   /* near-black plum, used for text & hard edges */
+  --wood-dark:  #5a3519;
+  --wood:       #8a5a34;
+  --wood-light: #c08a52;
+  --cream:      #fff3dc;
+  --blossom:    #f3a9c6;
+  --blossom-deep:#d8679a;
+  --gold:       #ffd27a;
+  --gold-deep:  #e8a93f;
+  --dusk-1:     #241233;
+  --dusk-2:     #3c2250;
+
+  --font-pixel: "Press Start 2P", monospace;
+  --font-body:  "VT323", monospace;
+
+  --step: 3px;              /* base unit for the pixel-notch border trick */
+  color-scheme: dark;
+}
+
+*, *::before, *::after{ box-sizing: border-box; }
+
+html, body{
+  margin: 0;
+  height: 100%;
+  background: var(--dusk-1);
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: 22px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2{ margin: 0; }
+
+.px{ font-family: var(--font-pixel); }
+
+:focus-visible{
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+img, video{ display: block; max-width: 100%; }
+
+/* =========================================================================
+   Screens — simple show/hide stack, each one covers the viewport
+   ========================================================================= */
+.screen{
+  position: fixed;
+  inset: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.screen[hidden]{ display: none !important; }
+
+/* =========================================================================
+   Background scene — full-viewport video, image fallback underneath,
+   object-fit: cover with a bias toward the upper-middle (where the
+   clearing through the blossoms sits), never stretched.
+   ========================================================================= */
+.scene{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--dusk-1);
+}
+.scene__media{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+/*
+  video-in.mp4 is encoded 576×1024 (portrait), but the camera recorded
+  in landscape — the content inside is rotated 90° clockwise.
+  To display it upright we rotate the element -90° (counter-clockwise)
+  and swap width/height so it still fills the viewport end-to-end.
+  The overflow:hidden on .scene clips the overflow cleanly.
+
+  transform-origin: 50% 50% keeps the element centred while it rotates.
+  Translated 50%/50% trick centres the absolutely-positioned element before
+  the transform is applied.
+*/
+.scene__media--rotated{
+  position: absolute;
+  /* Place top-left corner at viewport centre, then pull back with translate */
+  top: 50%;
+  left: 50%;
+  /* After -90° rotation the element's logical width maps to viewport height
+     and logical height maps to viewport width — swap them so coverage is total */
+  width: 100vh;
+  height: 100vw;
+  object-fit: cover;
+  object-position: center center;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: 50% 50%;
+  /* Fade-in behaviour re-used from .scene__media--video */
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.scene__media--rotated.is-ready{ opacity: 1; }
+
+/* video that sits in the after-scene (.after-video) is a true landscape file —
+   it must NEVER be rotated; it uses plain object-fit: cover via its own class */
+.scene__media--video{
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.scene__media--video.is-ready{ opacity: 1; }
+
+
+/* vignette: darkens the lower third so the gate panel stays legible
+   over moving footage without boxing the video in black bars */
+.scene__vignette{
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom,
+      rgba(20, 10, 30, 0.55) 0%,
+      rgba(20, 10, 30, 0.05) 28%,
+      rgba(20, 10, 30, 0.05) 55%,
+      rgba(18, 9, 26, 0.72) 100%),
+    linear-gradient(to right,
+      rgba(15, 8, 22, 0.35) 0%,
+      rgba(15, 8, 22, 0) 45%);
+  pointer-events: none;
+}
+
+/* Portrait viewports: enhance vignette for text readability */
+@media (orientation: portrait){
+  .scene__media{
+    object-position: center center;
+  }
+  .scene__vignette{
+    background:
+      linear-gradient(to bottom,
+        rgba(20, 10, 30, 0.72) 0%,
+        rgba(20, 10, 30, 0.15) 26%,
+        rgba(20, 10, 30, 0.28) 58%,
+        rgba(18, 9, 26, 0.88) 100%),
+      linear-gradient(to right,
+        rgba(15, 8, 22, 0.35) 0%,
+        rgba(15, 8, 22, 0) 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .scene__media--video,
+  .scene__media--rotated{ display: none; }
+}
+
+/* =========================================================================
+   Scene characters — Mitsubee (landing) and Sharuu (after-scene).
+   Both are pre-cut transparent PNGs (assets/mitsubee-cropped.png,
+   assets/sharuu-cropped.png — tightly cropped from the originals, which are
+   untouched). Anchored inside their .scene container so they move with the
+   background rather than the viewport, painted after the video and before
+   the vignette (shares the same lighting), and — because .scene itself has
+   no z-index — always stack beneath .stage / the HUD layers, which do.
+   ========================================================================= */
+.scene-character{
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+.scene-character__img{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  display: block;
+}
+.scene-character__shadow{
+  position: absolute;
+  left: 50%;
+  bottom: -5%;
+  width: 68%;
+  height: 15%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center,
+    rgba(10,6,14,0.5) 0%, rgba(10,6,14,0.24) 55%, rgba(10,6,14,0) 78%);
+  filter: blur(1px);
+}
+
+/* Mitsubee — landing scene, right side among the blossoms */
+.scene-character--mitsubee{
+  right: clamp(4px, 3vw, 48px);
+  bottom: clamp(8%, 11vh, 15%);
+  width: clamp(88px, 17vw, 190px);
+  aspect-ratio: 376 / 689;
+}
+
+/* Sharuu — after-scene, under the tree on the right; smaller & set further
+   back than Mitsubee for a touch of depth, and kept well clear of the
+   hotbar's vertical footprint. */
+.scene-character--sharuu{
+  right: clamp(8%, 15vw, 16%);
+  bottom: clamp(16%, 19vh, 24%);
+  width: clamp(66px, 13vw, 148px);
+  aspect-ratio: 250 / 539;
+}
+
+/* Narrow / short viewports: keep clear of the name-entry panel on the
+   landing screen, and clear of the hotbar in the after-scene. */
+@media (max-width: 560px){
+  .scene-character--mitsubee{ display: none; }
+  .scene-character--sharuu{
+    width: clamp(50px, 12vw, 100px);
+    right: 5%;
+    bottom: clamp(20%, 22vh, 28%);
+  }
+}
+@media (max-height: 380px) and (orientation: landscape){
+  .scene-character--sharuu{ bottom: clamp(22%, 24vh, 30%); }
+}
+
+/* =========================================================================
+   Landing stage / content layout
+   ========================================================================= */
+.stage{
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(20px, 5vh, 56px) clamp(20px, 6vw, 72px);
+  gap: clamp(16px, 3vh, 32px);
+}
+
+.hero{
+  max-width: 620px;
+}
+.hero__title{
+  font-size: clamp(20px, 4.4vw, 34px);
+  line-height: 1.6;
+  color: var(--cream);
+  text-shadow:
+    3px 3px 0 var(--ink),
+    0 0 26px rgba(0,0,0,0.5);
+  letter-spacing: 0.5px;
+}
+.hero__subtitle{
+  margin: 14px 0 0;
+  font-size: clamp(18px, 2.6vw, 26px);
+  color: var(--blossom);
+  text-shadow: 2px 2px 0 rgba(20,8,16,0.6);
+}
+
+/* =========================================================================
+   Gate — the name-entry panel, styled as a notched wooden sign rather
+   than a rounded card. Corners are cut with clip-path (pixel notch).
+   ========================================================================= */
+.gate{
+  position: relative;
+  max-width: 520px;
+}
+
+/* Sharuu, perched sitting on top of the name-entry panel — like he's
+   sitting on top of a Minecraft question block. Anchored to .gate so he
+   rides along with the panel at every breakpoint, overlapping its top
+   edge and nudged toward the right so his seat sits over solid wood,
+   clear of the panel's left-aligned lead text / scene behind it. */
+.gate-character{
+  position: absolute;
+  right: clamp(14px, 9%, 40px);
+  bottom: 100%;
+  width: clamp(58px, 8.5vw, 94px);
+  aspect-ratio: 356 / 610;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  z-index: 1;
+}
+.gate-character__img{
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  /* pulls him down just enough that his seat overlaps the panel's top
+     notch rather than floating above it */
+  transform: translateY(16%);
+  filter: drop-shadow(2px 4px 0 rgba(0,0,0,0.35));
+}
+
+@media (max-width: 560px){
+  .gate-character{
+    width: clamp(46px, 15vw, 70px);
+    right: clamp(10px, 10%, 24px);
+  }
+}
+
+.gate__lead{
+  margin: 0 0 14px;
+  font-size: clamp(18px, 2.4vw, 23px);
+  color: var(--cream);
+  text-shadow: 2px 2px 0 rgba(20,8,16,0.6);
+}
+
+.gate__form-wrap{
+  position: relative;
+  margin-top: clamp(28px, 7vh, 56px);
+}
+
+.gate__form{
+  --notch: 10px;
+  background: linear-gradient(180deg, #7a4d2c 0%, var(--wood-dark) 100%);
+  padding: 18px 20px 20px;
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  box-shadow:
+    inset 0 0 0 3px var(--ink),
+    inset 0 -8px 0 -2px rgba(0,0,0,0.35),
+    inset 0 6px 0 -2px rgba(255,210,170,0.18),
+    6px 6px 0 rgba(0,0,0,0.35);
+}
+
+.gate__label{
+  display: block;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+
+.gate__row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gate__input{
+  flex: 1 1 180px;
+  min-width: 0;
+  font: inherit;
+  font-size: 22px;
+  padding: 11px 14px;
+  background: var(--cream);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.12);
+}
+.gate__input::placeholder{ color: #8a7558; }
+.gate__input.is-invalid{
+  border-color: #c0394a;
+}
+
+.btn{
+  font: inherit;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--cream);
+  background: var(--blossom-deep);
+  border: 3px solid var(--ink);
+  padding: 13px 16px;
+  cursor: pointer;
+  min-height: 44px;
+  box-shadow:
+    inset -3px -3px 0 rgba(0,0,0,0.25),
+    inset 3px 3px 0 rgba(255,255,255,0.3),
+    3px 3px 0 rgba(0,0,0,0.4);
+  transition: filter 120ms ease;
+  white-space: nowrap;
+}
+.btn:hover{ filter: brightness(1.1); }
+.btn:active{ transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(0,0,0,0.4); }
+
+.gate__submit{ flex: 0 0 auto; }
+
+.gate__error{
+  min-height: 1.6em;
+  margin: 12px 0 0;
+  font-size: 17px;
+  color: #ffb4bf;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}
+.gate__error:empty{ margin: 0; min-height: 0; }
+
+/* =========================================================================
+   Orientation gate (mobile portrait) — Redesigned Minecraft Cherry Blossom
+   ========================================================================= */
+#orientation-gate{
+  z-index: 50;
+  background: var(--dusk-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: max(16px, env(safe-area-inset-top, 16px))
+           max(16px, env(safe-area-inset-right, 16px))
+           max(16px, env(safe-area-inset-bottom, 16px))
+           max(16px, env(safe-area-inset-left, 16px));
+}
+
+/* Atmospheric cherry blossom scenery backdrop */
+.orientation-gate__scene{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.orientation-gate__backdrop{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 36%;
+  filter: brightness(0.62) saturate(1.15);
+  transform: scale(1.04);
+}
+.orientation-gate__overlay{
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 210, 122, 0.08) 0%, transparent 65%),
+    linear-gradient(to bottom,
+      rgba(24, 12, 34, 0.75) 0%,
+      rgba(20, 10, 30, 0.52) 35%,
+      rgba(18, 9, 26, 0.72) 65%,
+      rgba(16, 8, 22, 0.92) 100%);
+}
+
+/* Subtle floating cherry-blossom petals */
+.orientation-gate__petals{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+.petal{
+  position: absolute;
+  top: -24px;
+  width: 9px;
+  height: 7px;
+  background: var(--blossom);
+  box-shadow: inset -1px -1px 0 var(--blossom-deep), 1px 1px 0 rgba(0,0,0,0.18);
+  clip-path: polygon(30% 0%, 70% 0%, 100% 40%, 80% 100%, 20% 100%, 0% 40%);
+  opacity: 0.85;
+  animation: petalFall 8s linear infinite;
+  will-change: transform, opacity;
+}
+.petal--1{ left: 12%; animation-duration: 7.5s; animation-delay: 0s; --drift: 48px; --rot: 240deg; }
+.petal--2{ left: 26%; animation-duration: 9.5s; animation-delay: -3.2s; --drift: -36px; --rot: 320deg; width: 7px; height: 6px; }
+.petal--3{ left: 42%; animation-duration: 6.8s; animation-delay: -1.6s; --drift: 55px; --rot: 180deg; }
+.petal--4{ left: 58%; animation-duration: 8.6s; animation-delay: -4.8s; --drift: -42px; --rot: 290deg; width: 8px; height: 6px; }
+.petal--5{ left: 74%; animation-duration: 10.2s; animation-delay: -2.4s; --drift: 34px; --rot: 220deg; }
+.petal--6{ left: 88%; animation-duration: 7.2s; animation-delay: -5.6s; --drift: -28px; --rot: 360deg; width: 6px; height: 5px; }
+.petal--7{ left: 20%; animation-duration: 8.9s; animation-delay: -6.5s; --drift: 44px; --rot: 210deg; }
+.petal--8{ left: 66%; animation-duration: 9.8s; animation-delay: -7.8s; --drift: -32px; --rot: 270deg; width: 8px; height: 7px; }
+
+@keyframes petalFall{
+  0%{
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  15%{
+    opacity: 0.88;
+  }
+  85%{
+    opacity: 0.88;
+  }
+  100%{
+    transform: translate3d(var(--drift, 40px), 105vh, 0) rotate(var(--rot, 360deg));
+    opacity: 0;
+  }
+}
+
+/* Orientation gate stage & hanging wooden board */
+.orientation-gate__stage{
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.orientation-gate__chains{
+  display: flex;
+  justify-content: space-between;
+  width: 210px;
+  height: 22px;
+  margin-bottom: -2px;
+  z-index: 6;
+}
+.chain{
+  width: 6px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    180deg,
+    #5a3a22 0 4px,
+    var(--ink) 4px 6px,
+    #8a5a34 6px 10px
+  );
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.4);
+}
+
+.orientation-gate__board{
+  --notch: 10px;
+  position: relative;
+  width: 100%;
+  background: linear-gradient(180deg, #7a4d2c 0%, var(--wood-dark) 100%);
+  padding: 22px 20px 20px;
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  box-shadow:
+    inset 0 0 0 3px var(--ink),
+    inset 0 -8px 0 -2px rgba(0,0,0,0.4),
+    inset 0 6px 0 -2px rgba(255,210,170,0.2),
+    6px 6px 0 rgba(0,0,0,0.45);
+  text-align: center;
+}
+
+/* Pixel art phone rotation illustration */
+.orientation-gate__illustration{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px auto 14px;
+}
+.pixel-phone-wrap{
+  position: relative;
+  width: 80px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pixel-phone{
+  position: relative;
+  width: 38px;
+  height: 60px;
+  background: #4a2c18;
+  border: 3px solid var(--ink);
+  box-shadow:
+    inset 0 0 0 2px #7a4d2c,
+    2px 2px 0 rgba(0,0,0,0.35);
+  transform-origin: center center;
+  animation: pixelRotate 3.6s cubic-bezier(0.45, 0.05, 0.25, 0.95) infinite;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px;
+  will-change: transform;
+}
+.pixel-phone__notch{
+  width: 10px;
+  height: 2px;
+  background: var(--ink);
+  margin-top: 1px;
+}
+.pixel-phone__screen{
+  position: relative;
+  width: 26px;
+  height: 40px;
+  background: #3c2250;
+  border: 2px solid var(--ink);
+  overflow: hidden;
+}
+.pixel-phone__sun{
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  box-shadow: 0 0 4px var(--gold-deep);
+}
+.pixel-phone__tree{
+  position: absolute;
+  bottom: 8px;
+  right: 3px;
+  width: 10px;
+  height: 12px;
+  background: var(--blossom);
+  box-shadow: -2px 2px 0 var(--blossom-deep);
+}
+.pixel-phone__tree::after{
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 4px;
+  width: 2px;
+  height: 4px;
+  background: #5a3519;
+}
+.pixel-phone__ground{
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  background: #4f9a3c;
+  border-top: 2px solid #6cc255;
+}
+.pixel-phone__chin{
+  width: 8px;
+  height: 2px;
+  background: var(--ink);
+  margin-bottom: 1px;
+}
+
+/* Rotation arrow badge next to phone */
+.pixel-arrow{
+  position: absolute;
+  right: -2px;
+  top: 4px;
+  color: var(--gold);
+  animation: arrowPulse 3.6s ease-in-out infinite;
+  filter: drop-shadow(1px 1px 0 var(--ink));
+}
+
+@keyframes pixelRotate{
+  0%, 18%{
+    transform: rotate(0deg);
+  }
+  42%, 72%{
+    transform: rotate(-90deg);
+  }
+  92%, 100%{
+    transform: rotate(0deg);
+  }
+}
+@keyframes arrowPulse{
+  0%, 18%{
+    opacity: 0.9;
+    transform: scale(1) translate(0, 0);
+  }
+  30%, 42%{
+    opacity: 1;
+    transform: scale(1.15) translate(2px, -2px);
+  }
+  72%, 100%{
+    opacity: 0.7;
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.orientation-gate__heading{
+  font-size: clamp(13px, 3.8vw, 16px);
+  line-height: 1.6;
+  color: var(--cream);
+  text-shadow:
+    2px 2px 0 var(--ink),
+    0 0 16px rgba(0,0,0,0.6);
+  margin: 12px 0 8px;
+  letter-spacing: 0.5px;
+}
+
+.orientation-gate__desc{
+  font-size: clamp(19px, 4.8vw, 22px);
+  line-height: 1.45;
+  color: var(--blossom);
+  text-shadow: 2px 2px 0 rgba(20,8,16,0.7);
+  margin: 0 0 16px;
+}
+
+.orientation-gate__hint-box{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 10, 30, 0.72);
+  border: 2px solid var(--gold-deep);
+  padding: 7px 14px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.15),
+    inset -1px -1px 0 rgba(0,0,0,0.4),
+    0 0 10px rgba(232, 169, 63, 0.25);
+  animation: hintPulse 2.8s ease-in-out infinite;
+}
+.orientation-gate__hint{
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+@keyframes hintPulse{
+  0%, 100%{
+    border-color: var(--gold-deep);
+    box-shadow: 0 0 6px rgba(232, 169, 63, 0.25);
+  }
+  50%{
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(255, 210, 122, 0.5);
+  }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce){
+  .petal{ display: none !important; }
+  .pixel-phone{ animation: none; }
+  .pixel-arrow{ animation: none; }
+  .orientation-gate__hint-box{ animation: none; }
+}
+
+/* Small portrait screens: tighten padding */
+@media (max-height: 600px) and (orientation: portrait){
+  .orientation-gate__chains{ height: 12px; }
+  .orientation-gate__board{ padding: 14px 14px 14px; }
+  .orientation-gate__illustration{ margin-bottom: 8px; }
+  .orientation-gate__heading{ font-size: 13px; margin: 8px 0 6px; }
+  .orientation-gate__desc{ font-size: 18px; margin-bottom: 10px; }
+  .orientation-gate__hint-box{ padding: 5px 10px; }
+}
+
+/* =========================================================================
+   Screen 3+4: After scene — video-af.mp4 full-screen, shared by both phases
+   ========================================================================= */
+#after-scene{
+  z-index: 30;
+  background: var(--dusk-1);  /* visible only if video hasn't started yet */
+}
+
+/* video-af.mp4 is 720×408 — true landscape, no rotation needed.
+   Fades in once canplay fires (is-ready class added by JS). */
+.after-video{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  opacity: 0;
+  transition: opacity 800ms ease;
+}
+.after-video.is-ready{ opacity: 1; }
+
+/* Vignette for after-scene: lighter than landing so the background shines through */
+.scene__vignette--after{
+  background:
+    linear-gradient(to bottom,
+      rgba(20, 10, 30, 0.4) 0%,
+      rgba(20, 10, 30, 0.04) 28%,
+      rgba(20, 10, 30, 0.06) 60%,
+      rgba(18, 9, 26, 0.70) 100%);
+}
+
+/* ─── Phase A: Transition text overlay ─── */
+/* Sits over the video, centred, visible immediately when #after-scene is shown */
+.after-transition{
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  /* Fade in immediately */
+  opacity: 1;
+  transition: opacity 600ms ease;
+}
+.after-transition.is-fading-out{
+  opacity: 0;
+  pointer-events: none;
+}
+.after-transition__title{
+  font-size: clamp(14px, 2.8vw, 22px);
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  text-shadow: 2px 2px 0 var(--ink), 0 0 20px rgba(0,0,0,0.7);
+}
+@keyframes fade-in{ to{ opacity: 1; } }
+
+/* ─── Phase B: Welcome text overlay ─── */
+/* Hidden initially; JS removes [hidden] and adds is-visible after transition completes */
+.after-welcome{
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  /* Top-left corner placement — same clamp value drives both the top and
+     left offset so the two edges read as one consistent inset. */
+  padding: clamp(24px, 6vh, 60px) clamp(24px, 6vw, 72px);
+  padding-top: calc(env(safe-area-inset-top, 0px) + clamp(24px, 6vh, 60px));
+  padding-left: calc(env(safe-area-inset-left, 0px) + clamp(24px, 6vw, 72px));
+  max-width: min(58vw, 420px);
+  pointer-events: none;
+  /* Starts transparent; transitions to visible */
+  opacity: 0;
+  transition: opacity 800ms ease;
+}
+.after-welcome.is-visible{ opacity: 1; }
+/* When [hidden] is present, transition is skipped — reset opacity so fade works */
+.after-welcome[hidden]{ display: none !important; }
+
+.after-title{
+  font-size: clamp(20px, 4vw, 32px);
+  color: var(--cream);
+  text-shadow: 3px 3px 0 var(--ink), 0 0 24px rgba(0,0,0,0.7);
+  margin: 0 0 10px;
+}
+.after-subtitle{
+  font-size: clamp(18px, 2.5vw, 24px);
+  color: var(--blossom);
+  text-shadow: 2px 2px 0 rgba(20,8,16,0.7);
+  margin: 0;
+}
+
+/* Reduced motion: skip all fade animations in after-scene */
+@media (prefers-reduced-motion: reduce){
+  .after-transition{ transition: none; }
+  .after-welcome{ transition: none; }
+  .after-video{ transition: none; }
+}
+
+/* =========================================================================
+   Small screens: stack the input row, give the gate a touch more room
+   ========================================================================= */
+@media (max-width: 480px){
+  .gate__row{ flex-direction: column; align-items: stretch; }
+  .gate__submit{ width: 100%; text-align: center; justify-content: center; }
+}
+
+/* =========================================================================
+   SCREEN 5: Memory World gameplay — Minecraft hotbar HUD
+   Layered over the already-playing video-af.mp4 world.
+   ========================================================================= */
+.hud{
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+.hud.is-visible{ opacity: 1; }
+.hud[hidden]{ display: none !important; }
+
+/* ---- Hotbar ---- */
+.hotbar{
+  position: absolute;
+  left: 50%;
+  bottom: clamp(12px, 3.4vh, 30px);
+  transform: translateX(-50%);
+  z-index: 5;
+}
+.hotbar__slots{
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  width: clamp(280px, 56vw, 560px);
+  aspect-ratio: 120 / 15;
+  background-image: url("assets/hotbar.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 4px 0 rgba(0,0,0,0.35));
+}
+.hotbar__slot{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hotbar__slot:focus-visible{ outline: 2px solid var(--gold); outline-offset: -2px; }
+
+.hotbar__thumb{
+  width: 70%;
+  height: 70%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-position: center;
+  background-size: cover;
+  color: rgba(255,243,220,0.5);
+  transition: transform 150ms ease;
+}
+.hotbar__thumb--photo{ box-shadow: inset 0 0 0 1px rgba(0,0,0,0.45); }
+.hotbar__thumb--chest{
+  font-size: clamp(20px, 5.5vw, 30px);
+  line-height: 1;
+  filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+}
+.hotbar__slot.is-selected .hotbar__thumb{ transform: scale(1.08); }
+
+.hotbar__check{
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 13px;
+  height: 13px;
+  background: #4f9a3c;
+  color: #fff3dc;
+  font-size: 9px;
+  line-height: 13px;
+  text-align: center;
+  box-shadow: 0 0 0 1px var(--ink);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.hotbar__slot.is-complete .hotbar__check{ opacity: 1; transform: scale(1); }
+
+.hotbar__lock{
+  position: absolute;
+  inset: 8%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,6,14,0.6);
+  color: rgba(255,243,220,0.85);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.hotbar__slot--chest.is-locked{ cursor: not-allowed; }
+.hotbar__slot--chest.is-locked .hotbar__lock{ opacity: 1; }
+.hotbar__slot--chest:not(.is-locked) .hotbar__thumb--chest{ filter: drop-shadow(0 0 6px var(--gold)); }
+.hotbar__slot--chest.is-newly-unlocked{ animation: chestPulse 1.3s ease-in-out 2; }
+@keyframes chestPulse{
+  0%, 100%{ transform: scale(1); }
+  50%{ transform: scale(1.14); }
+}
+
+.hotbar__frame{
+  position: absolute;
+  top: 50%;
+  width: 12%;
+  height: auto;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  image-rendering: pixelated;
+  transition: left 160ms cubic-bezier(.3, 1.4, .4, 1);
+  filter: drop-shadow(0 0 5px rgba(255,210,122,0.55));
+}
+
+/* ---- Quest toggle + panel ---- */
+.quest-toggle{
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: calc(env(safe-area-inset-right, 0px) + 14px);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--cream);
+  background: linear-gradient(180deg, #7a4d2c 0%, var(--wood-dark) 100%);
+  border: 2px solid var(--ink);
+  padding: 8px 10px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.18),
+    inset -2px -2px 0 rgba(0,0,0,0.3),
+    2px 2px 0 rgba(0,0,0,0.35);
+  cursor: pointer;
+}
+.quest-toggle__icon{ color: var(--gold); font-size: 13px; }
+.quest-toggle__progress{ letter-spacing: 0.5px; }
+
+.quest-panel{
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  right: calc(env(safe-area-inset-right, 0px) + 14px);
+  z-index: 7;
+  width: min(240px, 72vw);
+  max-height: min(60vh, 320px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #342049 0%, var(--dusk-1) 100%);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+  transform: translateX(14px);
+  opacity: 0;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.quest-panel.is-open{ opacity: 1; transform: translateX(0); }
+.quest-panel[hidden]{ display: none !important; }
+
+.quest-panel__head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+}
+.quest-panel__title{ font-size: 11px; color: var(--gold); }
+.quest-panel__close{
+  background: none; border: none; color: var(--cream);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+
+.quest-list{
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+.quest-list__item{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 18px;
+  color: rgba(255,243,220,0.6);
+}
+.quest-list__item.is-complete{ color: var(--cream); }
+.quest-list__mark{
+  width: 16px; height: 16px; flex: 0 0 auto;
+  border: 2px solid rgba(255,243,220,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #4f9a3c;
+}
+.quest-list__item.is-complete .quest-list__mark{ border-color: #4f9a3c; }
+
+.quest-panel__progress{
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 2px solid var(--ink);
+  font-size: 15px;
+  color: var(--blossom);
+  text-align: center;
+}
+
+/* ---- Completion banner ---- */
+.hud-banner{
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: 50%;
+  transform: translate(-50%, -8px);
+  z-index: 8;
+  text-align: center;
+  padding: 10px 18px;
+  background: rgba(20,10,30,0.78);
+  border: 2px solid var(--gold-deep);
+  box-shadow: 0 0 16px rgba(232,169,63,0.3);
+  opacity: 0;
+  transition: opacity 500ms ease, transform 500ms ease;
+  pointer-events: none;
+}
+.hud-banner.is-visible{ opacity: 1; transform: translate(-50%, 0); }
+.hud-banner[hidden]{ display: none !important; }
+.hud-banner__title{ font-size: 12px; color: var(--gold); margin: 0 0 4px; }
+.hud-banner__sub{ font-size: 16px; color: var(--blossom); margin: 0; }
+
+/* ---- Reward prompt ---- */
+.reward-prompt{
+  position: absolute;
+  left: 50%;
+  bottom: clamp(74px, 13vh, 110px);
+  transform: translate(-50%, 6px);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, var(--blossom-deep), #9c3e68);
+  border: 2px solid var(--ink);
+  color: var(--cream);
+  font-size: 10px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+.reward-prompt.is-visible{ opacity: 1; transform: translate(-50%, 0); }
+.reward-prompt[hidden]{ display: none !important; }
+.reward-prompt__glow{
+  width: 9px; height: 9px;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+  animation: hintPulse 1.8s ease-in-out infinite;
+}
+
+/* ---- Memory viewer ---- */
+.viewer{
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewer[hidden]{ display: none !important; }
+.viewer__backdrop{
+  position: absolute; inset: 0;
+  background: rgba(10,6,14,0.78);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.viewer.is-visible .viewer__backdrop{ opacity: 1; }
+.viewer__panel{
+  position: relative;
+  z-index: 1;
+  max-width: min(640px, 88vw);
+  max-height: 82vh;
+  padding: 16px;
+  background: linear-gradient(180deg, #7a4d2c 0%, var(--wood-dark) 100%);
+  border: 3px solid var(--ink);
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transform: scale(0.92);
+  opacity: 0;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.viewer.is-visible .viewer__panel{ transform: scale(1); opacity: 1; }
+.viewer__media{
+  max-width: 100%;
+  max-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  border: 2px solid var(--ink);
+  overflow: hidden;
+}
+.viewer__media img{ max-width: 100%; max-height: 60vh; object-fit: contain; }
+.viewer__placeholder{
+  padding: 40px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,243,220,0.55);
+}
+.viewer__placeholder p{ margin: 0; font-size: 16px; }
+.viewer__caption{ font-size: 11px; color: var(--gold); text-align: center; }
+.viewer__close{
+  position: absolute;
+  top: -12px; right: -12px;
+  width: 30px; height: 30px;
+  background: var(--blossom-deep);
+  border: 2px solid var(--ink);
+  color: var(--cream);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+
+/* ---- Reward overlay ---- */
+.reward-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.reward-overlay[hidden]{ display: none !important; }
+.reward-overlay.is-visible{ opacity: 1; }
+.reward-overlay__video{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.reward-overlay__fallback{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  gap: 10px;
+}
+.reward-overlay__fallback[hidden]{ display: none !important; }
+.reward-overlay__fallback-title{ font-size: 15px; color: var(--gold); }
+.reward-overlay__fallback-sub{ font-size: 18px; color: var(--blossom); max-width: 320px; }
+.reward-overlay__close{
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  z-index: 2;
+  width: 34px; height: 34px;
+  background: rgba(20,10,30,0.7);
+  border: 2px solid var(--cream);
+  color: var(--cream);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---- Chest letter overlay (ported from the old project's #let/.letter) ----
+   Restyled with this site's own wood/cream/gold panel language instead of
+   the source's hardcoded purple/pink palette; structure, stagger timing
+   and button behavior are unchanged. */
+.letter-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.letter-overlay[hidden]{ display: none !important; }
+.letter-overlay.is-visible{ opacity: 1; }
+.letter-overlay__backdrop{
+  position: absolute; inset: 0;
+  background: rgba(10,6,14,0.8);
+}
+.letter{
+  position: relative;
+  z-index: 1;
+  width: min(480px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--cream);
+  border: 6px solid var(--wood);
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.4);
+  padding: 22px 20px;
+  transform: scale(0.94);
+  transition: transform 240ms ease;
+}
+.letter-overlay.is-visible .letter{ transform: scale(1); }
+.letter__close{
+  position: absolute;
+  top: -12px; right: -12px;
+  width: 30px; height: 30px;
+  background: var(--blossom-deep);
+  border: 2px solid var(--ink);
+  color: var(--cream);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+.letter__text{ min-height: 40px; }
+.letter__line{
+  font-size: clamp(14px, 3.4vw, 19px);
+  line-height: 1.4;
+  color: #3a2418;
+  margin: 0 0 0.75em;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.letter__line.is-visible{ opacity: 1; }
+.letter__actions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.letter__more[hidden]{ display: none !important; }
+
+/* Confetti burst, spawned on chest open — ported from the source's .cf/@pf */
+.confetti-piece{
+  position: fixed;
+  top: -10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  z-index: 56;
+  animation: confettiFall 2.5s linear forwards;
+  pointer-events: none;
+}
+@keyframes confettiFall{
+  to{ transform: translate(60px, 110vh) rotate(360deg); }
+}
+
+/* ---- Final scene ("One More Thing...") — ported from the old project's
+   #s3 / msg() typing effect + #rep reset button. Shown as an overlay above
+   the world video rather than a new background scene. ---- */
+.final-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.final-overlay[hidden]{ display: none !important; }
+.final-overlay.is-visible{ opacity: 1; }
+.final-overlay__backdrop{
+  position: absolute; inset: 0;
+  background: rgba(10,6,14,0.82);
+}
+.final{
+  position: relative;
+  z-index: 1;
+  width: min(480px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.final__panel{
+  width: 100%;
+  background: linear-gradient(180deg, #342049 0%, var(--dusk-1) 100%);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+  padding: 18px;
+}
+.final__line{
+  font-size: clamp(14px, 3.4vw, 19px);
+  line-height: 1.5;
+  color: var(--cream);
+  margin: 0;
+  min-height: 1.5em;
+}
+.final__after{ display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.final__after[hidden]{ display: none !important; }
+.final__frame{
+  width: min(320px, 82vw);
+  border: 4px solid var(--wood);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.45);
+  overflow: hidden;
+  background: var(--ink);
+}
+.final__frame-img{
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.final__frame-label{
+  font-size: 14px;
+  color: rgba(255,243,220,0.55);
+  text-align: center;
+}
+.final__thanks, .final__signoff{ margin: 0; color: var(--blossom); font-size: 16px; }
+
+/* Reduced motion: skip HUD/overlay transitions */
+@media (prefers-reduced-motion: reduce){
+  .hud, .quest-panel, .hud-banner, .reward-prompt,
+  .viewer__backdrop, .viewer__panel, .reward-overlay,
+  .letter-overlay, .letter, .final-overlay,
+  .hotbar__frame, .hotbar__thumb{ transition: none; }
+  .confetti-piece{ display: none; }
+}
+
+/* Small portrait / narrow screens: keep quest log from crowding */
+@media (max-width: 420px){
+  .quest-panel{ width: min(220px, 78vw); }
+  .reward-prompt{ font-size: 9px; padding: 9px 13px; }
+}
+
+/* Landscape phones with little vertical space: tighten rhythm and ensure no scroll */
+@media (max-height: 440px) and (orientation: landscape){
+  .stage{
+    padding-top: max(10px, env(safe-area-inset-top, 10px));
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    padding-left: max(16px, env(safe-area-inset-left, 16px));
+    padding-right: max(16px, env(safe-area-inset-right, 16px));
+    gap: 8px;
+  }
+  .hero{ max-width: 540px; }
+  .hero__title{ font-size: clamp(14px, 3.4vw, 20px); line-height: 1.3; }
+  .hero__subtitle{ font-size: 15px; margin-top: 4px; }
+  .gate{ max-width: 460px; }
+  .gate__lead{ margin-bottom: 6px; font-size: 16px; }
+  .gate__form{ padding: 10px 14px 12px; }
+  .gate__label{ margin-bottom: 6px; font-size: 11px; }
+  .gate__input{ font-size: 18px; padding: 7px 10px; }
+  .btn{ padding: 9px 12px; min-height: 36px; font-size: 10px; }
+  .after-welcome{
+    padding: max(12px, env(safe-area-inset-top, 12px)) max(16px, env(safe-area-inset-left, 16px));
+  }
+}
